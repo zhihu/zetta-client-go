@@ -33,11 +33,12 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 		}
 		acode = t.ArrayElementType.Code
 	}
-	typeErr := errTypeMismatch(code, false, ptr)
-	if code == tspb.TypeCode_ARRAY {
-		typeErr = errTypeMismatch(acode, true, ptr)
+	typeErr := func() error {
+		if code == tspb.TypeCode_ARRAY {
+			return errTypeMismatch(acode, true, ptr)
+		}
+		return errTypeMismatch(code, false, ptr)
 	}
-	nullErr := errDstNotForNull(ptr)
 	_, isNull := v.Kind.(*tspb.Value_NullValue)
 
 	// Do the decoding based on the type of ptr.
@@ -49,7 +50,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		x, err := getStringValue(v)
 		if err != nil {
@@ -75,7 +76,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_STRING {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -130,7 +131,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 		}
 
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		x, err := getInteger64Value(v)
 		if err != nil {
@@ -178,10 +179,10 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_BOOL {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		x, err := getBoolValue(v)
 		if err != nil {
@@ -193,7 +194,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_BOOL {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = NullBool{}
@@ -210,7 +211,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_BOOL {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -230,10 +231,10 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_FLOAT64 {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		x, err := getFloat64Value(v)
 		if err != nil {
@@ -245,7 +246,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_FLOAT64 {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = NullFloat64{}
@@ -262,7 +263,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_FLOAT64 {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -280,7 +281,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 	case *time.Time:
 		var nt NullTime
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		err := parseNullTime(v, &nt, code, isNull)
 		if err != nil {
@@ -297,7 +298,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_TIMESTAMP {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -317,10 +318,10 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_DATE {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
-			return nullErr
+			return errDstNotForNull(ptr)
 		}
 		x, err := getStringValue(v)
 		if err != nil {
@@ -336,7 +337,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if code != tspb.TypeCode_DATE {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = NullDate{}
@@ -357,7 +358,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_DATE {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -377,7 +378,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 			return errNilDst(p)
 		}
 		if acode != tspb.TypeCode_STRUCT {
-			return typeErr
+			return typeErr()
 		}
 		if isNull {
 			*p = nil
@@ -402,7 +403,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 	default:
 		// Check if the proto encoding is for an array of structs.
 		if !(code == tspb.TypeCode_ARRAY && acode == tspb.TypeCode_STRUCT) {
-			return typeErr
+			return typeErr()
 		}
 		vp := reflect.ValueOf(p)
 		if !vp.IsValid() {
@@ -410,7 +411,7 @@ func decodeSparseValue(v *tspb.Value, t *tspb.Type, ptr interface{}) error {
 		}
 		if !isPtrStructPtrSlice(vp.Type()) {
 			// The container is not a pointer to a struct pointer slice.
-			return typeErr
+			return typeErr()
 		}
 		// Only use reflection for nil detection on slow path.
 		// Also, IsNil panics on many types, so check it after the type check.

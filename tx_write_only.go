@@ -39,6 +39,8 @@ func (t *writeOnlyTransaction) applyAtLeastOnce(ctx context.Context, ms ...*Muta
 		ts time.Time
 		sh *sessionHandle
 	)
+
+	table := ms[0].table
 	mPb, err := mutationsProto(ms)
 	if err != nil {
 		// Malformed mutation found, just return the error.
@@ -59,6 +61,7 @@ func (t *writeOnlyTransaction) applyAtLeastOnce(ctx context.Context, ms ...*Muta
 
 		res, e := sh.getClient().Commit(ctx, &tspb.CommitRequest{
 			Session: sh.getID(),
+			Table:   table,
 			Transaction: &tspb.CommitRequest_SingleUseTransaction{
 				SingleUseTransaction: &tspb.TransactionOptions{
 					Mode: &tspb.TransactionOptions_ReadWrite_{

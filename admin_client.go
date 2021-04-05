@@ -15,7 +15,6 @@ package zetta
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/zhihu/zetta-client-go/utils/retry"
@@ -41,12 +40,13 @@ type AdminClient struct {
 	pbCli tspb.TablestoreAdminClient
 }
 
-func NewAdminClient(addr string) (*AdminClient, error) {
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+func NewAdminClient(addr string, opts ...grpc.DialOption) (*AdminClient, error) {
+	opts = append(opts, grpc.WithInsecure())
+
+	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		return nil, err
 	}
-	log.Println(addr)
 	return &AdminClient{
 		conn:  conn,
 		pbCli: tspb.NewTablestoreAdminClient(conn),

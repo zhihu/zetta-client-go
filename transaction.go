@@ -75,7 +75,7 @@ func (t *txReadOnly) ReadUsingIndex(ctx context.Context, table, index string, ke
 		ts  *tspb.TransactionSelector
 		err error
 	)
-	kset, err := keys.proto()
+	kset, err := keys.keySetProto()
 	if err != nil {
 		return &RowIterator{err: err}
 	}
@@ -106,8 +106,95 @@ func (t *txReadOnly) ReadUsingIndex(ctx context.Context, table, index string, ke
 	)
 }
 
+func (t *txReadOnly) SparseStreamRead(ctx context.Context, table, family string, rows []*SparseRow, limit int64) *RowIterator {
+	var (
+		sh  *sessionHandle
+		ts  *tspb.TransactionSelector
+		err error
+	)
+
+	if err != nil {
+		return &RowIterator{err: err}
+	}
+	if sh, ts, err = t.acquire(ctx); err != nil {
+		return &RowIterator{err: err}
+	}
+	// Cloud Spanner will return "Session not found" on bad sessions.
+	sid, client := sh.getID(), sh.getClient()
+	if sid == "" || client == nil {
+		// Might happen if transaction is closed in the middle of a API call.
+		return &RowIterator{err: errSessionClosed(sh)}
+	}
+
+	srows := []*tspb.Row{}
+	for _, r := range rows {
+		row, err := r.proto()
+		if err != nil {
+			return &RowIterator{err: err}
+		}
+		srows = append(srows, row)
+	}
+	return stream(
+		ctx,
+		func(ctx context.Context, resumeToken []byte) (streamingReceiver, error) {
+			return client.StreamingSparseRead(ctx,
+				&tspb.SparseReadRequest{
+					Session:     sid,
+					Transaction: ts,
+					Table:       table,
+					Family:      family,
+					Rows:        srows,
+					Limit:       limit,
+				})
+		},
+		t.release,
+	)
+}
+
+func (t *txReadOnly) SparseStreamScan(ctx context.Context, table, family string, keySet KeySet, limit int64) *RowIterator {
+	var (
+		sh  *sessionHandle
+		ts  *tspb.TransactionSelector
+		err error
+	)
+
+	if err != nil {
+		return &RowIterator{err: err}
+	}
+	if sh, ts, err = t.acquire(ctx); err != nil {
+		return &RowIterator{err: err}
+	}
+	// Cloud Spanner will return "Session not found" on bad sessions.
+	sid, client := sh.getID(), sh.getClient()
+	if sid == "" || client == nil {
+		// Might happen if transaction is closed in the middle of a API call.
+		return &RowIterator{err: errSessionClosed(sh)}
+	}
+
+	keysProto, err := keySet.keySetProto()
+	if err != nil {
+		return &RowIterator{err: err}
+	}
+
+	return stream(
+		ctx,
+		func(ctx context.Context, resumeToken []byte) (streamingReceiver, error) {
+			return client.StreamingSparseScan(ctx,
+				&tspb.SparseScanRequest{
+					Session:     sid,
+					Transaction: ts,
+					Table:       table,
+					Family:      family,
+					KeySet:      keysProto,
+					Limit:       limit,
+				})
+		},
+		t.release,
+	)
+}
+
 // errRowNotFound returns error for not being able to read the row identified by key.
-func errRowNotFound(table string, key Key) error {
+func errRowNotFound(table string, key KeySet) error {
 	return wrapError(codes.NotFound, "row not found(Table: %v, PrimaryKey: %v)", table, key)
 }
 
@@ -115,8 +202,8 @@ func errRowNotFound(table string, key Key) error {
 //
 // If no row is present with the given key, then ReadRow returns an error where
 // IsRowNotFound(err) is true.
-func (t *txReadOnly) ReadRow(ctx context.Context, table string, key Key, columns []string) (*Row, error) {
-	iter := t.Read(ctx, table, Keys(key), columns)
+func (t *txReadOnly) ReadRow(ctx context.Context, table string, key KeySet, columns []string) (*Row, error) {
+	iter := t.Read(ctx, table, key, columns)
 	defer iter.Stop()
 	row, err := iter.Next()
 	switch err {

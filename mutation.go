@@ -137,6 +137,8 @@ type Mutation struct {
 	// values specifies the new values for the target columns
 	// named by Columns.
 	values []interface{}
+
+	family string
 }
 
 // column -> value 的 map 转换为 Mutation 参数
@@ -192,21 +194,23 @@ func structToMutationParams(in interface{}) ([]string, []interface{}, error) {
 
 // Insert returns a Mutation to insert a row into a table. If the row already
 // exists, the write or transaction fails.
-func Insert(table string, cols []string, vals []interface{}) *Mutation {
+func Insert(table string, ks KeySet, family string, cols []string, vals []interface{}) *Mutation {
 	return &Mutation{
 		op:      opInsert,
 		table:   table,
 		columns: cols,
 		values:  vals,
+		keySet:  ks,
+		family:  family,
 	}
 }
 
 // InsertMap returns a Mutation to insert a row into a table, specified by
 // a map of column name to value. If the row already exists, the write or
 // transaction fails.
-func InsertMap(table string, in map[string]interface{}) *Mutation {
+func InsertMap(table string, ks KeySet, family string, in map[string]interface{}) *Mutation {
 	cols, vals := mapToMutationParams(in)
-	return Insert(table, cols, vals)
+	return Insert(table, ks, family, cols, vals)
 }
 
 // InsertStruct returns a Mutation to insert a row into a table, specified by
@@ -215,61 +219,65 @@ func InsertMap(table string, in map[string]interface{}) *Mutation {
 // The in argument must be a struct or a pointer to a struct. Its exported
 // fields specify the column names and values. Use a field tag like "spanner:name"
 // to provide an alternative column name, or use "spanner:-" to ignore the field.
-func InsertStruct(table string, in interface{}) (*Mutation, error) {
+func InsertStruct(table string, ks KeySet, family string, in interface{}) (*Mutation, error) {
 	cols, vals, err := structToMutationParams(in)
 	if err != nil {
 		return nil, err
 	}
-	return Insert(table, cols, vals), nil
+	return Insert(table, ks, family, cols, vals), nil
 }
 
 // Update returns a Mutation to update a row in a table. If the row does not
 // already exist, the write or transaction fails.
-func Update(table string, cols []string, vals []interface{}) *Mutation {
+func Update(table string, ks KeySet, family string, cols []string, vals []interface{}) *Mutation {
 	return &Mutation{
 		op:      opUpdate,
 		table:   table,
 		columns: cols,
 		values:  vals,
+		keySet:  ks,
+		family:  family,
 	}
 }
 
 // UpdateMap returns a Mutation to update a row in a table, specified by
 // a map of column to value. If the row does not already exist, the write or
 // transaction fails.
-func UpdateMap(table string, in map[string]interface{}) *Mutation {
+func UpdateMap(table string, ks KeySet, family string, in map[string]interface{}) *Mutation {
 	cols, vals := mapToMutationParams(in)
-	return Update(table, cols, vals)
+	return Update(table, ks, family, cols, vals)
 }
 
 // UpdateStruct returns a Mutation to update a row in a table, specified by a Go
 // struct. If the row does not already exist, the write or transaction fails.
-func UpdateStruct(table string, in interface{}) (*Mutation, error) {
+func UpdateStruct(table string, ks KeySet, family string, in interface{}) (*Mutation, error) {
 	cols, vals, err := structToMutationParams(in)
 	if err != nil {
 		return nil, err
 	}
-	return Update(table, cols, vals), nil
+	return Update(table, ks, family, cols, vals), nil
 }
 
 // InsertOrUpdate returns a Mutation to insert a row into a table. If the row
 // already exists, it updates it instead. Any column values not explicitly
 // written are preserved.
-func InsertOrUpdate(table string, cols []string, vals []interface{}) *Mutation {
+func InsertOrUpdate(table string, ks KeySet, family string, cols []string, vals []interface{}) *Mutation {
 	return &Mutation{
 		op:      opInsertOrUpdate,
 		table:   table,
 		columns: cols,
 		values:  vals,
+		keySet:  ks,
+		family:  family,
 	}
 }
 
 // InsertOrUpdateMap returns a Mutation to insert a row into a table,
 // specified by a map of column to value. If the row already exists, it
 // updates it instead. Any column values not explicitly written are preserved.
-func InsertOrUpdateMap(table string, in map[string]interface{}) *Mutation {
+func InsertOrUpdateMap(table string, ks KeySet, family string, in map[string]interface{}) *Mutation {
 	cols, vals := mapToMutationParams(in)
-	return InsertOrUpdate(table, cols, vals)
+	return InsertOrUpdate(table, ks, family, cols, vals)
 }
 
 // InsertOrUpdateStruct returns a Mutation to insert a row into a table,
@@ -279,32 +287,34 @@ func InsertOrUpdateMap(table string, in map[string]interface{}) *Mutation {
 // The in argument must be a struct or a pointer to a struct. Its exported
 // fields specify the column names and values. Use a field tag like "spanner:name"
 // to provide an alternative column name, or use "spanner:-" to ignore the field.
-func InsertOrUpdateStruct(table string, in interface{}) (*Mutation, error) {
+func InsertOrUpdateStruct(table string, ks KeySet, family string, in interface{}) (*Mutation, error) {
 	cols, vals, err := structToMutationParams(in)
 	if err != nil {
 		return nil, err
 	}
-	return InsertOrUpdate(table, cols, vals), nil
+	return InsertOrUpdate(table, ks, family, cols, vals), nil
 }
 
 // Replace returns a Mutation to insert a row into a table, deleting any
 // existing row. Unlike InsertOrUpdate, this means any values not explicitly
 // written become NULL.
-func Replace(table string, cols []string, vals []interface{}) *Mutation {
+func Replace(table string, ks KeySet, family string, cols []string, vals []interface{}) *Mutation {
 	return &Mutation{
 		op:      opReplace,
 		table:   table,
 		columns: cols,
 		values:  vals,
+		keySet:  ks,
+		family:  family,
 	}
 }
 
 // ReplaceMap returns a Mutation to insert a row into a table, deleting any
 // existing row. Unlike InsertOrUpdateMap, this means any values not explicitly
 // written become NULL.  The row is specified by a map of column to value.
-func ReplaceMap(table string, in map[string]interface{}) *Mutation {
+func ReplaceMap(table string, ks KeySet, family string, in map[string]interface{}) *Mutation {
 	cols, vals := mapToMutationParams(in)
-	return Replace(table, cols, vals)
+	return Replace(table, ks, family, cols, vals)
 }
 
 // ReplaceStruct returns a Mutation to insert a row into a table, deleting any
@@ -314,40 +324,45 @@ func ReplaceMap(table string, in map[string]interface{}) *Mutation {
 // The in argument must be a struct or a pointer to a struct. Its exported
 // fields specify the column names and values. Use a field tag like "spanner:name"
 // to provide an alternative column name, or use "spanner:-" to ignore the field.
-func ReplaceStruct(table string, in interface{}) (*Mutation, error) {
+func ReplaceStruct(table string, ks KeySet, family string, in interface{}) (*Mutation, error) {
 	cols, vals, err := structToMutationParams(in)
 	if err != nil {
 		return nil, err
 	}
-	return Replace(table, cols, vals), nil
+	return Replace(table, ks, family, cols, vals), nil
 }
 
 // Delete removes a key from a table. Succeeds whether or not the key was
 // present.
-func Delete(table string, ks KeySet, columns ...string) *Mutation {
+func Delete(table string, ks KeySet, family string, columns ...string) *Mutation {
 	return &Mutation{
 		op:      opDelete,
 		table:   table,
 		keySet:  ks,
 		columns: columns,
+		family:  family,
 	}
 }
 
 // DeleteKeyRange removes a range of keys from a table. Succeeds whether or not
 // the keys were present.
-func DeleteKeyRange(table string, r KeyRange, columns ...string) *Mutation {
+func DeleteKeyRange(table string, r KeyRange, family string, columns ...string) *Mutation {
 	return &Mutation{
 		op:      opDelete,
 		table:   table,
-		keySet:  Range(r),
+		keySet:  r,
 		columns: columns,
 	}
 }
 
 // prepareWrite generates tspb.Mutation_Write from table name, column names
 // and new column values.
-func prepareWrite(table string, columns []string, vals []interface{}) (*tspb.Mutation_Write, error) {
+func prepareWrite(table string, ks KeySet, family string, columns []string, vals []interface{}) (*tspb.Mutation_Write, error) {
 	v, err := encodeValueArray(vals)
+	if err != nil {
+		return nil, err
+	}
+	keySetProto, err := ks.keySetProto()
 	if err != nil {
 		return nil, err
 	}
@@ -355,6 +370,8 @@ func prepareWrite(table string, columns []string, vals []interface{}) (*tspb.Mut
 		Table:   table,
 		Columns: columns,
 		Values:  []*tspb.ListValue{v},
+		KeySet:  keySetProto,
+		Family:  family,
 	}, nil
 }
 
@@ -369,7 +386,7 @@ func (m Mutation) proto() (*tspb.Mutation, error) {
 	var pb *tspb.Mutation
 	switch m.op {
 	case opDelete:
-		keySetProto, err := m.keySet.proto()
+		keySetProto, err := m.keySet.keySetProto()
 		if err != nil {
 			return nil, err
 		}
@@ -379,29 +396,30 @@ func (m Mutation) proto() (*tspb.Mutation, error) {
 					Table:   m.table,
 					KeySet:  keySetProto,
 					Columns: m.columns,
+					Family:  m.family,
 				},
 			},
 		}
 	case opInsert:
-		w, err := prepareWrite(m.table, m.columns, m.values)
+		w, err := prepareWrite(m.table, m.keySet, m.family, m.columns, m.values)
 		if err != nil {
 			return nil, err
 		}
 		pb = &tspb.Mutation{Operation: &tspb.Mutation_Insert{Insert: w}}
 	case opInsertOrUpdate:
-		w, err := prepareWrite(m.table, m.columns, m.values)
+		w, err := prepareWrite(m.table, m.keySet, m.family, m.columns, m.values)
 		if err != nil {
 			return nil, err
 		}
 		pb = &tspb.Mutation{Operation: &tspb.Mutation_InsertOrUpdate{InsertOrUpdate: w}}
 	case opReplace:
-		w, err := prepareWrite(m.table, m.columns, m.values)
+		w, err := prepareWrite(m.table, m.keySet, m.family, m.columns, m.values)
 		if err != nil {
 			return nil, err
 		}
 		pb = &tspb.Mutation{Operation: &tspb.Mutation_Replace{Replace: w}}
 	case opUpdate:
-		w, err := prepareWrite(m.table, m.columns, m.values)
+		w, err := prepareWrite(m.table, m.keySet, m.family, m.columns, m.values)
 		if err != nil {
 			return nil, err
 		}
@@ -424,4 +442,8 @@ func mutationsProto(ms []*Mutation) ([]*tspb.Mutation, error) {
 		l = append(l, pb)
 	}
 	return l, nil
+}
+
+func MutationsProto(ms []*Mutation) ([]*tspb.Mutation, error) {
+	return mutationsProto(ms)
 }

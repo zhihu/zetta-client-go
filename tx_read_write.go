@@ -199,6 +199,7 @@ func (t *ReadWriteTransaction) commit(ctx context.Context) (time.Time, error) {
 	var ts time.Time
 	t.mu.Lock()
 	t.state = txClosed // No futher operations after commit.
+	table := t.wb[0].table
 	mPb, err := mutationsProto(t.wb)
 	t.mu.Unlock()
 	if err != nil {
@@ -213,6 +214,7 @@ func (t *ReadWriteTransaction) commit(ctx context.Context) (time.Time, error) {
 		var trailer metadata.MD
 		res, e := client.Commit(ctx, &tspb.CommitRequest{
 			Session: sid,
+			Table:   table,
 			Transaction: &tspb.CommitRequest_TransactionId{
 				TransactionId: t.tx,
 			},

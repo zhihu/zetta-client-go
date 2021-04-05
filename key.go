@@ -92,6 +92,15 @@ func (key Key) proto() (*tspb.ListValue, error) {
 	return lv, nil
 }
 
+// keySetProto lets a single Key act as a KeySet.
+func (key Key) keySetProto() (*tspb.KeySet, error) {
+	kp, err := key.proto()
+	if err != nil {
+		return nil, err
+	}
+	return &tspb.KeySet{Keys: []*tspb.ListValue{kp}}, nil
+}
+
 func (key Key) String() string {
 	b := &bytes.Buffer{}
 	fmt.Fprint(b, "(")
@@ -123,6 +132,15 @@ func (key Key) String() string {
 	}
 	fmt.Fprint(b, ")")
 	return b.String()
+}
+
+// AsPrefix returns a KeyRange for all keys where k is the prefix.
+func (key Key) AsPrefix() KeyRange {
+	return KeyRange{
+		Start: key,
+		End:   key,
+		Kind:  ClosedClosed,
+	}
 }
 
 // mark boundary open state of left and right
@@ -163,6 +181,15 @@ func (r KeyRange) String() string {
 		left, right = "?", "?"
 	}
 	return fmt.Sprintf("%s%s,%s%s", left, r.Start, r.End, right)
+}
+
+// keySetProto lets a KeyRange act as a KeySet.
+func (r KeyRange) keySetProto() (*tspb.KeySet, error) {
+	rp, err := r.proto()
+	if err != nil {
+		return nil, err
+	}
+	return &tspb.KeySet{Ranges: []*tspb.KeyRange{rp}}, nil
 }
 
 // proto converts KeyRange into tspb.KeyRange.
