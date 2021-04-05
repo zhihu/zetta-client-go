@@ -28,8 +28,6 @@ import (
 )
 
 const (
-	SPARSE_READ = "sparseread"
-
 	// numChannels is the default value for NumChannels of client
 	numChannels = 4
 )
@@ -50,6 +48,8 @@ type DataClient struct {
 
 type DataClientConfig struct {
 	NumChannels int // 并发度，对应 session pool
+	RecvMsgSize int
+	DialOptions []grpc.DialOption
 	SessionPoolConfig
 }
 
@@ -65,10 +65,17 @@ func NewDataClient(ctx context.Context, serverAddr, dbName string, conf DataClie
 	if conf.MaxBurst == 0 {
 		conf.MaxBurst = DefaultSessionPoolConfig.MaxBurst
 	}
+	if conf.RecvMsgSize == 0 {
+		conf.RecvMsgSize = 64 * 1000 * 1000
+	}
 
 	dc := &DataClient{database: dbName}
 
-	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
+	dialOpts := []grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(conf.RecvMsgSize)),
+	}
+	dialOpts = append(dialOpts, conf.DialOptions...)
 
 	rsTarget := ParseTarget(serverAddr)
 	if strings.ToLower(rsTarget.Scheme) == "dns" {
@@ -246,7 +253,7 @@ func (dc *DataClient) Read(ctx context.Context, table string, keys KeySet, index
 	if err != nil {
 		return nil, err
 	}
-	keysProto, err := keys.proto()
+	keysProto, err := keys.keySetProto()
 	if err != nil {
 		return nil, err
 	}
@@ -271,6 +278,8 @@ func (dc *DataClient) Read(ctx context.Context, table string, keys KeySet, index
 		Columns: columns,
 		Limit:   limit,
 	}
+
+	res, err := sh.getClient().Read(ctx, req)
 	defer func() {
 		if sh != nil {
 			if shouldDropSession(err) {
@@ -279,7 +288,6 @@ func (dc *DataClient) Read(ctx context.Context, table string, keys KeySet, index
 			sh.recycle()
 		}
 	}()
-	res, err := sh.getClient().Read(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -288,8 +296,6 @@ func (dc *DataClient) Read(ctx context.Context, table string, keys KeySet, index
 }
 
 func (dc *DataClient) SparseRead(ctx context.Context, table, family string, rows []*SparseRow, limit int64) (*SparseResultSet, error) {
-	metricCount(SPARSE_READ)
-	t := metricStartTiming()
 	sh, err := dc.sp.take(ctx)
 	if err != nil {
 		return nil, err
@@ -325,12 +331,55 @@ func (dc *DataClient) SparseRead(ctx context.Context, table, family string, rows
 		Limit:  limit,
 	}
 	res, err := sh.getClient().SparseRead(ctx, req)
+	defer func() {
+		if sh != nil {
+			if shouldDropSession(err) {
+				sh.destroy()
+			}
+			sh.recycle()
+		}
+	}()
 	if err != nil {
-		metricCountError(SPARSE_READ)
+		return nil, err
+	}
+
+	return BuildSparseResultSet(res), nil
+}
+
+func (dc *DataClient) SparseScan(ctx context.Context, table, family string, keys KeySet, limit int64) (*SparseResultSet, error) {
+	sh, err := dc.sp.take(ctx)
+	if err != nil {
+		return nil, err
+	}
+	keysProto, err := keys.keySetProto()
+	if err != nil {
+		return nil, err
+	}
+	session := sh.getID()
+
+	req := &tspb.SparseScanRequest{
+		Session: session,
+		Transaction: &tspb.TransactionSelector{
+			Selector: &tspb.TransactionSelector_SingleUse{
+				SingleUse: &tspb.TransactionOptions{
+					Mode: &tspb.TransactionOptions_ReadOnly_{
+						ReadOnly: &tspb.TransactionOptions_ReadOnly{
+							TimestampBound: &tspb.TransactionOptions_ReadOnly_Strong{Strong: true},
+						},
+					},
+				},
+			},
+		},
+		Table:  table,
+		Family: family,
+		KeySet: keysProto,
+		Limit:  limit,
+	}
+	res, err := sh.getClient().SparseScan(ctx, req)
+	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		metricRecordTiming(t, SPARSE_READ)
 		if sh != nil {
 			if shouldDropSession(err) {
 				sh.destroy()

@@ -65,7 +65,8 @@ func main() {
 func writeTable(client *zetta.DataClient) {
 	cols := []string{"name", "age"}
 	vals := []interface{}{"user-01", "18"}
-	rawMS := zetta.InsertOrUpdate(TABLE_NAME, cols, vals)
+	pkey := zetta.Key{"user-01"}
+	rawMS := zetta.InsertOrUpdate(TABLE_NAME, pkey, "default", cols, vals)
 	err := client.Mutate(context.Background(), rawMS)
 	if err != nil {
 		panic(err)
@@ -103,9 +104,8 @@ func readTable(client *zetta.DataClient) {
 		PartitionToken: nil,
 	}
 
-	keys := zetta.KeySet{
-		Keys: []zetta.Key{[]interface{}{"user-01"}},
-	}
+	keys := zetta.Key{"user-01"}
+
 	resp, err := client.Read(context.Background(), in.Table, keys, "", in.Columns, 10)
 	if err != nil {
 		panic(err)
@@ -194,8 +194,9 @@ func createTable() {
 func writeMutations() {
 	cols := []string{"id", "age"}
 	vs := []interface{}{1, 20}
+	pkey := zetta.Key{"id"}
 	mutations := []*zetta.Mutation{
-		zetta.Insert(DB_NAME, cols, vs),
+		zetta.InsertOrUpdate(DB_NAME, pkey, "default", cols, vs),
 	}
 	ctx := context.Background()
 	t, err := dataClient.Apply(ctx, mutations)

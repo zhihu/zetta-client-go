@@ -26,7 +26,6 @@ import (
 
 // Create a table
 func (ac *AdminClient) CreateTable(ctx context.Context, db string, tableMeta *tspb.TableMeta, indexMetas []*tspb.IndexMeta) error {
-	tableMeta.Database = db
 	in := &tspb.CreateTableRequest{
 		Database:  db,
 		TableMeta: tableMeta,

@@ -176,6 +176,52 @@ func (r *Row) ColumnNames() []string {
 	return n
 }
 
+func (r *Row) SparseQualifierIndex(name string) (int, error) {
+	found := false
+	var index int
+	for i, cell := range r.cells {
+		coln := cell.Column
+		if name == coln {
+			if found {
+				return 0, errDupColName(name)
+			}
+			found = true
+			index = i
+		}
+	}
+	if !found {
+		return 0, errColNotFound(name)
+	}
+	return index, nil
+}
+
+func (r *Row) SparseQualifiers() []string {
+	var n []string
+	for _, cell := range r.cells {
+		n = append(n, cell.Column)
+	}
+	return n
+}
+
+func (r *Row) SparseRowKeys() []interface{} {
+	keys := []interface{}{}
+	for _, pkey := range r.primaryKeys {
+		switch pkey.Kind.(type) {
+		case *tspb.Value_BoolValue:
+			keys = append(keys, pkey.GetBoolValue())
+		case *tspb.Value_BytesValue:
+			keys = append(keys, pkey.GetBytesValue())
+		case *tspb.Value_NumberValue:
+			keys = append(keys, pkey.GetNumberValue())
+		case *tspb.Value_IntegerValue:
+			keys = append(keys, pkey.GetIntegerValue())
+		case *tspb.Value_StringValue:
+			keys = append(keys, pkey.GetStringValue())
+		}
+	}
+	return keys
+}
+
 // errColIdxOutOfRange returns error for requested column index is out of the
 // range of the target Row's columns.
 func errColIdxOutOfRange(i int, r *Row) error {

@@ -37,16 +37,32 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/zhihu/zetta-client-go/internal/testutil"
 	tspb "github.com/zhihu/zetta-proto/pkg/tablestore"
 )
 
 var (
+
+	// KvMeta is the Metadata for mocked KV table.
+	KvMeta = tspb.ResultSetMetadata{
+		RowType: &tspb.StructType{
+			Fields: []*tspb.StructType_Field{
+				{
+					Name: "Key",
+					Type: &tspb.Type{Code: tspb.TypeCode_STRING},
+				},
+				{
+					Name: "Value",
+					Type: &tspb.Type{Code: tspb.TypeCode_STRING},
+				},
+			},
+		},
+	}
+
 	// Mocked transaction timestamp.
 	trxTs = time.Unix(1, 2)
 	// Metadata for mocked KV table, its rows are returned by SingleUse transactions.
 	kvMeta = func() *tspb.ResultSetMetadata {
-		meta := testutil.KvMeta
+		meta := KvMeta
 		meta.Transaction = &tspb.Transaction{
 			ReadTimestamp: timestampProto(trxTs),
 		}

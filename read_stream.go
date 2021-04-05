@@ -467,6 +467,7 @@ func (d *resumableStreamDecoder) next() bool {
 			log.Printf("Unexpected resumableStreamDecoder.state: %v", d.state)
 			return false
 		}
+
 	}
 }
 
